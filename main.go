@@ -11,13 +11,14 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
-	"github.com/sing3demons/go-mongo-api/mongodb"
+	"github.com/sing3demons/go-mongo-api/database"
+	"github.com/sing3demons/go-mongo-api/logger"
 	"github.com/sing3demons/go-mongo-api/router"
 	"github.com/sirupsen/logrus"
 )
 
 func main() {
-	if gin.EnvGinMode != gin.ReleaseMode {
+	if os.Getenv(gin.EnvGinMode) != gin.ReleaseMode {
 		if err := godotenv.Load(".env"); err != nil {
 			logrus.Fatal("Error loading .env file")
 		}
@@ -28,8 +29,7 @@ func main() {
 		logrus.Fatal("missing connection string")
 	}
 
-	client := mongodb.Connect(uri)
-
+	client := database.Connect(uri)
 	defer func() {
 		if err := client.Disconnect(context.TODO()); err != nil {
 			panic(err)
@@ -38,10 +38,11 @@ func main() {
 
 	db := client.Database("users")
 
-	r := router.NewRouter()
+	logger, _ := logger.NewLogger()
+	defer logger.Sync()
 
-	router.InitUserRoutes(r, db)
-
+	r := router.NewRouter(logger)
+	router.InitUserRoutes(r, db, logger)
 	ServeHttp(":8080", "user-service", r)
 
 }

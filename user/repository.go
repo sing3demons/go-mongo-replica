@@ -9,14 +9,16 @@ import (
 	"github.com/sirupsen/logrus"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
+	"go.uber.org/zap"
 )
 
 type repository struct {
-	db *mongo.Database
+	db     *mongo.Database
+	logger *zap.Logger
 }
 
-func NewRepository(db *mongo.Database) *repository {
-	return &repository{db: db}
+func NewRepository(db *mongo.Database, logger *zap.Logger) *repository {
+	return &repository{db: db, logger: logger}
 }
 
 func (r *repository) collection() *mongo.Collection {
