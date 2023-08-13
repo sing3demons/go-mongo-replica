@@ -12,7 +12,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-func getKeys() (privateKey []byte, publicKey []byte, err error) {
+func _() (privateKey []byte, publicKey []byte, err error) {
 	pwd, err := os.Getwd()
 	if err != nil {
 		logrus.Error("can't get working directory err: ", err)

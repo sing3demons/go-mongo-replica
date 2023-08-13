@@ -18,7 +18,7 @@ import (
 
 func main() {
 	if gin.EnvGinMode != gin.ReleaseMode {
-		if err := godotenv.Load(".env.dev"); err != nil {
+		if err := godotenv.Load(".env"); err != nil {
 			logrus.Fatal("Error loading .env file")
 		}
 	}
