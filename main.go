@@ -2,56 +2,76 @@ package main
 
 import (
 	"context"
-	"fmt"
+	"errors"
+	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
+	"github.com/gin-gonic/gin"
+	"github.com/joho/godotenv"
+	"github.com/sing3demons/go-mongo-api/mongodb"
+	"github.com/sing3demons/go-mongo-api/router"
+	"github.com/sirupsen/logrus"
 )
 
-const uri = "mongodb://localhost:27017,localhost:27018,localhost:27019/my-database?replicaSet=my-replica-set"
-
 func main() {
-	serverAPI := options.ServerAPI(options.ServerAPIVersion1)
-	opts := options.Client().ApplyURI(uri).SetServerAPIOptions(serverAPI)
-
-	client, err := mongo.Connect(context.TODO(), opts)
-	if err != nil {
-		panic(err)
+	if gin.EnvGinMode != gin.ReleaseMode {
+		if err := godotenv.Load(".env.dev"); err != nil {
+			logrus.Fatal("Error loading .env file")
+		}
 	}
 
+	uri := os.Getenv("MONGO_URL")
+	if uri == "" {
+		logrus.Fatal("missing connection string")
+	}
+
+	client := mongodb.Connect(uri)
+
 	defer func() {
-		if err = client.Disconnect(context.TODO()); err != nil {
+		if err := client.Disconnect(context.TODO()); err != nil {
 			panic(err)
 		}
 	}()
 
-	// var result bson.M
-	// if err := client.Database("admin").RunCommand(context.TODO(), bson.D{{Key: "ping", Value: 1}}).Decode(&result); err != nil {
-	// 	panic(err)
-	// }
-	fmt.Println("Pinged your deployment. You successfully connected to MongoDB!")
+	db := client.Database("users")
 
-	collection := client.Database("users").Collection("users")
-	collection.InsertOne(context.TODO(), bson.D{
-		{Key: "name", Value: "John Doe"},
-		{Key: "age", Value: 43},
-		{Key: "profession", Value: "Lawyer"},
-	})
+	r := router.NewRouter()
 
-	var results []bson.M
+	router.InitUserRoutes(r, db)
 
-	cur, err := collection.Find(context.TODO(), bson.D{})
-	if err != nil {
-		panic(err)
+	ServeHttp(":8080", "user-service", r)
+
+}
+
+func ServeHttp(addr, serviceName string, router http.Handler) {
+	srv := &http.Server{
+		Addr:    addr,
+		Handler: router,
 	}
 
-	if cur.All(context.Background(), &results); err != nil {
-		panic(err)
+	go func() {
+		logrus.Infof("[%s] http listen: %v", serviceName, srv.Addr)
+
+		if err := srv.ListenAndServe(); err != nil && errors.Is(err, http.ErrServerClosed) {
+			logrus.Error("server listen err: ", err)
+		}
+	}()
+
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	<-quit
+
+	logrus.Warn("shutting down server...")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	if err := srv.Shutdown(ctx); err != nil {
+		logrus.Fatal("server forced to shutdown: ", err)
 	}
 
-	for _, result := range results {
-		fmt.Println(result)
-	}
-
+	logrus.Warn("server exited")
 }
