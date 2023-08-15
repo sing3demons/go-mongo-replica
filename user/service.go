@@ -2,6 +2,7 @@ package user
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/matthewhartstonge/argon2"
 	"github.com/sing3demons/go-mongo-api/utils"
@@ -39,6 +40,8 @@ func (s *service) Register(account User) (*User, error) {
 	}
 
 	account.Password = string(hashPassword)
+	account.CreatedAt = time.Now()
+	account.UpdatedAt = time.Now()
 
 	u, err := s.db.CreateAccount(account)
 	if err != nil {

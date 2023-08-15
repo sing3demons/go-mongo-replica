@@ -1,6 +1,7 @@
 package router
 
 import (
+	helmet "github.com/danielkov/gin-helmet"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	logMiddleware "github.com/sing3demons/go-mongo-api/logger"
@@ -27,6 +28,7 @@ func NewRouter(logger *zap.Logger) *gin.Engine {
 	}
 
 	r.Use(cors.New(config))
+	r.Use(helmet.Default())
 	return r
 }
 
